@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -67,27 +68,11 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Save the thumbnail to the global map by creating new thumbnail struct with image data and media type
-	tn := thumbnail{
-		data:      thumbnailData,
-		mediaType: contentType,
-	}
-	// add thumbnail to global map `videoThumbnails` using video's ID as the key
-	videoThumbnails[videoID] = tn
+	base64Encoded := base64.StdEncoding.EncodeToString(thumbnailData)
+	base64DataURL := fmt.Sprintf("data:%s;base64,%s", contentType, base64Encoded)
 
-	// Update database so that the existing video record has a new thumbnail URL by using
-	// `cfg.db.UpdateVideo` function. The thumbnail URL should have this format:
-	// `http://localhost:<port>/api/thumbnails/{videoID}` this works since the
-	// `/api/thumbnails/{videoID}` enpoint serves thumbnails from the global map
-	thumbnailURL := fmt.Sprintf("http://localhost:%d/api/thumbnails/%s", cfg.port, videoID)
+	video.ThumbnailURL = &base64DataURL
 
-	// Respond with updated JSON of the video's metadata using `respondWithJSON` function
-	// and pass it the updated `database.Video` struct to marshal.
-	video.ThumbnailURL = &thumbnailURL
-    if video.ThumbnailURL == nil || *video.ThumbnailURL != thumbnailURL {
-        respondWithError(w, http.StatusInternalServerError, "Thumbnail URL not set", err)
-        return
-    }
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
