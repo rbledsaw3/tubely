@@ -1,18 +1,22 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	db               database.Client
+	s3Client         *s3.Client
 	jwtSecret        string
 	platform         string
 	filepathRoot     string
@@ -24,7 +28,17 @@ type apiConfig struct {
 }
 
 func main() {
-	godotenv.Load(".env")
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
+	s3cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatalf("Error loading AWS SDK config: %v", err)
+	}
+
+	s3Client := s3.NewFromConfig(s3cfg)
 
 	pathToDB := os.Getenv("DB_PATH")
 	if pathToDB == "" {
@@ -78,6 +92,7 @@ func main() {
 
 	cfg := apiConfig{
 		db:               db,
+		s3Client:         s3Client,
 		jwtSecret:        jwtSecret,
 		platform:         platform,
 		filepathRoot:     filepathRoot,
